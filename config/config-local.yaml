@@ -1,0 +1,34 @@
+cache:
+  - name: carlosruperez-dev-redis
+    host: localhost
+    port: 6384
+  - name: carlosruperez-preprod-redis
+    host: localhost
+    port: 6384
+  - name: carlosruperez-prod-redis
+    host: localhost
+    port: 6384
+
+devMinor:
+  workflowId: local-dev-update-poetry-version-tests.yaml
+  workflowRepository: carlosruperez/go-fleet-manager
+
+maintenanceMode:
+  workflowId: local-maintenance-tests.yaml
+  workflowRepository: carlosruperez/go-fleet-manager
+
+prodDeployment:
+  workflowId: local-deployment-tests.yaml
+  workflowRepository: carlosruperez/go-fleet-manager
+
+createMainPR:
+  workflowId: local-pr-release-to-main-tests.yaml
+  workflowRepository: carlosruperez/go-fleet-manager
+
+environments:
+  - name: DEV
+    url: "http://carlosruperez.internal-api.dev.internal/"
+  - name: PRE
+    url: "http://carlosruperez.internal-api.pre.internal/"
+  - name: PROD
+    url: "http://carlosruperez.internal-api.internal/"

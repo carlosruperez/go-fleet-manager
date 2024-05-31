@@ -1,0 +1,34 @@
+name: Update Poetry version in develop
+run-name: Increase application version in develop
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to be uploaded'
+        required: true
+        type: choice
+        options:
+          - 'minor'
+          - 'major'
+          - 'patch'
+      appGithubRepository:
+        description: 'Application Github Repository'
+        required: true
+        type: choice
+        options:
+        - 'carlosruperez/tfg-ms-foo1-api-server'
+
+jobs:
+  test_delayed_job:
+    name: Local tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print args
+        run: |
+          echo ${{ github.event.inputs.version }}
+          echo ${{ github.event.inputs.appGithubRepository }}
+
+      - name: Delay
+        run: |
+          sleep 10

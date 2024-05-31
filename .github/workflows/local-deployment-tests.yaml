@@ -1,0 +1,36 @@
+name: PROD - Fargate Release deployment
+run-name: ${{ inputs.appName }} deployment to ${{ inputs.env }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      appName:
+        description: 'Application to deploy'
+        required: true
+        type: choice
+        options:
+        - tfg-ms-foo1-api-server
+      env:
+        description: 'Environment where the app will be deployed'
+        required: true
+        type: choice
+        options:
+        - prod
+      dockerImageVersion:
+        description: 'Docker image version to deploy'
+        required: true
+        type: string
+
+jobs:
+  test_delayed_job:
+    name: Local tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print args
+        run: |
+          echo ${{ github.event.inputs.dockerImageVersion }}
+          echo ${{ github.event.inputs.env }}
+          echo ${{ github.event.inputs.appName }}
+      - name: Delay
+        run: |
+          sleep 10

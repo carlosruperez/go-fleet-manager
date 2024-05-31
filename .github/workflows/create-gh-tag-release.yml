@@ -1,0 +1,83 @@
+on:
+  push:
+    branches: [ main ]
+
+name: Github Tag Release
+
+jobs:
+  app-version-management:
+    name: Github Tag Release
+    runs-on: ubuntu-24.04
+    outputs:
+      new-tag: ${{ steps.increment-tag.outputs.new_tag }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.AUTOMATION_GITHUB_API_TOKEN }}
+        fetch-depth: 0  # Fetch all history and tags
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.22.3
+
+    - name: Get the latest tag
+      id: get_latest_tag
+      run: |
+        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` 2>/dev/null || echo "")
+        if [ -z "$latest_tag" ]; then
+          echo "latest_tag=none" >> $GITHUB_ENV
+        else
+          echo "latest_tag=${latest_tag}" >> $GITHUB_ENV
+        fi
+
+    - name: Determine new version
+      id: increment-tag
+      run: |
+        if [ "${{ env.latest_tag }}" = "none" ]; then
+          new_version="0.0.1"
+          new_tag="v${new_version}"
+        else
+          latest_tag=${{ env.latest_tag }}
+          latest_tag=${latest_tag#v}
+          IFS='.' read -r -a version_parts <<< "${latest_tag}"
+          major=${version_parts[0]}
+          minor=${version_parts[1]}
+          patch=${version_parts[2]}
+          new_patch=$((patch + 1))
+          new_version="${major}.${minor}.${new_patch}"
+          new_tag="v${new_version}"
+        fi
+        echo "new_tag=${new_tag}" >> $GITHUB_OUTPUT
+        echo "new_version=${new_version}" >> $GITHUB_OUTPUT
+
+    - name: Create and push new tag
+      env:
+        GH_TOKEN: ${{ secrets.AUTOMATION_GITHUB_API_TOKEN }}
+      run: |
+        git config --global user.name 'github-actions'
+        git config --global user.email 'github-actions@github.com'
+
+        ./update_version.sh ${{ steps.increment-tag.outputs.new_version }}
+        git add version.yaml
+        git commit -m "[skip ci] Update version to ${{ steps.increment-tag.outputs.new_version }}"
+        git tag ${{ steps.increment-tag.outputs.new_tag }}
+        git push origin ${{ steps.increment-tag.outputs.new_tag }}
+        git push origin main
+
+    - name: Create new Github Release
+      id: create_release
+      env:
+        GH_TOKEN: ${{ secrets.AUTOMATION_GITHUB_API_TOKEN }}
+      run: |
+        RELEASE_NOTES=""
+        JSON_COMMITS='${{ toJson(github.event.commits) }}'
+
+        while IFS= read -r commit; do
+          RELEASE_NOTES="${RELEASE_NOTES}${commit}\n\n"
+        done < <(jq -r '.[] | .message' <<< "$JSON_COMMITS")
+
+        RELEASE_NOTES=$(echo -e "$RELEASE_NOTES" | sed '/^[[:space:]]*$/d')
+
+        gh release create ${{ steps.increment-tag.outputs.new_tag }} -t "${{ steps.increment-tag.outputs.new_tag }}" -n "$RELEASE_NOTES"

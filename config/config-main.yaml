@@ -1,0 +1,34 @@
+cache:
+  - name: tfg-dev-redis
+    host: tfg-dev-redis.xfi4bu.clustercfg.euw1.cache.amazonaws.com
+    port: 6384
+  - name: tfg-preprod-redis
+    host: tfg-preprod-redis.eqw1os.clustercfg.euw1.cache.amazonaws.com
+    port: 6384
+  - name: tfg-prod-redis
+    host: tfg-prod-redis.mevlja.clustercfg.euw1.cache.amazonaws.com
+    port: 6384
+
+devMinor:
+  workflowId: dev-update-poetry-version.yaml
+  workflowRepository: carlosruperez/duck-manager
+
+maintenanceMode:
+  workflowId: terraform-ms-maintenance-mode.yml
+  workflowRepository: carlosruperez/infrastructure-as-a-code
+
+prodDeployment:
+  workflowId: fargate-deployment-to-carlosruperez-prod-release.yaml
+  workflowRepository: carlosruperez/infrastructure-as-a-code
+
+createMainPR:
+  workflowId: pre-pr-release-to-main.yaml
+  workflowRepository: carlosruperez/duck-manager
+
+environments:
+  - name: DEV
+    url: "http://carlosruperez.internal-api.dev.internal/"
+  - name: PRE
+    url: "http://carlosruperez.internal-api.pre.internal/"
+  - name: PROD
+    url: "http://carlosruperez.internal-api.internal/"
