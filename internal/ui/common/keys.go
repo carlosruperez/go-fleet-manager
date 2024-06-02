@@ -40,7 +40,7 @@ var Keys = KeyMap{
 		key.WithHelp(styles.KeyBindingStyle.Render("enter"), "select option"),
 	),
 	Esc: key.NewBinding(
-		key.WithKeys("esc"),
+		key.WithKeys("esc", "ctrl+e"),
 		key.WithHelp(styles.KeyBindingStyle.Render("esc"), "Go to menu"),
 	),
 	Quit: key.NewBinding(

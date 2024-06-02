@@ -1,14 +1,10 @@
 package ui
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"reflect"
-	"sort"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -35,8 +31,8 @@ type VersionsModel struct {
 
 type item struct {
 	name    string
-	urls    []string
-	results []string
+	repo    repository.Repository
+	results map[common.Environment]string
 }
 
 type versionsKeyMap struct {
@@ -56,21 +52,24 @@ func (model *VersionsModel) Equals(other *VersionsModel) bool {
 }
 
 func NewVersionsModel() VersionsModel {
-
-	urls := []string{
-		"http://carlosruperez.internal-api.dev.internal/",
-		"http://carlosruperez.internal-api.pre.internal/",
-		"http://carlosruperez.internal-api.internal/",
-	}
-
 	items := []item{}
-	servicesPaths := getServicesPaths()
-	for _, servicePath := range servicesPaths {
-		ms_urls := []string{}
-		for _, url := range urls {
-			ms_urls = append(ms_urls, url+servicePath+"/version/")
+	msRepositories := getMsRepositories()
+	for _, msRepo := range msRepositories {
+		msPath, err := msRepo.GetMSPath()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
 		}
-		items = append(items, item{name: servicePath, urls: ms_urls, results: []string{"", "", ""}})
+		newItem := item{
+			name: msPath,
+			repo: msRepo,
+			results: map[common.Environment]string{
+				common.Development: "",
+				common.Staging:     "",
+				common.Production:  "",
+			},
+		}
+		items = append(items, newItem)
 	}
 
 	columns := []table.Column{
@@ -83,7 +82,7 @@ func NewVersionsModel() VersionsModel {
 
 	values := []table.Row{}
 	for i, item := range items {
-		values = append(values, table.Row{fmt.Sprint(i + 1), item.name, item.results[0], item.results[1], item.results[2]})
+		values = append(values, table.Row{fmt.Sprint(i + 1), item.name, item.results[common.Development], item.results[common.Staging], item.results[common.Production]})
 	}
 	customTableModel := uiCustomTable.NewCustomTableModel(columns, values)
 
@@ -103,34 +102,26 @@ type reqContent struct {
 
 type fetchMsg struct {
 	index       int
-	environment int
-	statusCode  int
+	environment common.Environment
 	err         error
 	version     string
 }
 
-func fetch(index int, environment int, url string) tea.Cmd {
+func fetch(index int, environment common.Environment, repo repository.Repository) tea.Cmd {
 	return func() tea.Msg {
-		client := http.Client{
-			Timeout: 5 * time.Second,
-		}
-		resp, err := client.Get(url)
+		version, err := usecases.GetVersion(repo, environment)
 		if err != nil {
 			return fetchMsg{index: index, environment: environment, err: err}
 		}
-		defer resp.Body.Close()
 
-		content := reqContent{}
-		err = json.NewDecoder(resp.Body).Decode(&content)
-
-		return fetchMsg{index: index, environment: environment, statusCode: resp.StatusCode, version: content.Version, err: err}
+		return fetchMsg{index: index, environment: environment, version: version}
 	}
 }
 
 func (m *VersionsModel) updateTable() {
 	values := []table.Row{}
 	for i, item := range m.items {
-		values = append(values, table.Row{fmt.Sprint(i + 1), item.name, item.results[0], item.results[1], item.results[2]})
+		values = append(values, table.Row{fmt.Sprint(i + 1), item.name, item.results[common.Development], item.results[common.Staging], item.results[common.Production]})
 	}
 	m.SetRows(values)
 }
@@ -138,9 +129,9 @@ func (m *VersionsModel) updateTable() {
 func (m VersionsModel) Init() tea.Cmd {
 	cmds := make([]tea.Cmd, 0)
 	for i := range m.items {
-		for j, url := range m.items[i].urls {
-			cmds = append(cmds, fetch(i, j, url))
-		}
+		cmds = append(cmds, fetch(i, common.Development, m.items[i].repo))
+		cmds = append(cmds, fetch(i, common.Staging, m.items[i].repo))
+		cmds = append(cmds, fetch(i, common.Production, m.items[i].repo))
 	}
 	cmds = append(cmds, uiCommon.UpdateEverySeconds(secondsBetweenUpdates))
 	return tea.Batch(cmds...)
@@ -155,13 +146,13 @@ func (m VersionsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.items[msg.index].results[msg.environment] = "👎"
 			m.errors.AddError(msg.err)
 		}
-		if m.items[msg.index].results[1] != "" && m.items[msg.index].results[1] != "👎" && m.items[msg.index].results[1] != "👀" {
-			if m.items[msg.index].results[1] != m.items[msg.index].results[2] {
+		if m.items[msg.index].results[common.Staging] != "" && m.items[msg.index].results[common.Staging] != "👎" && m.items[msg.index].results[common.Staging] != "👀" {
+			if m.items[msg.index].results[common.Staging] != m.items[msg.index].results[common.Production] {
 				var sb strings.Builder
 				sb.WriteString("\033[31m")
-				sb.WriteString(m.items[msg.index].results[2])
+				sb.WriteString(m.items[msg.index].results[common.Production])
 				sb.WriteString("\033[0m")
-				m.items[msg.index].results[2] = sb.String()
+				m.items[msg.index].results[common.Production] = sb.String()
 			}
 		}
 
@@ -187,10 +178,15 @@ func (m VersionsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case uiCommon.TickMsg:
 		cmds := make([]tea.Cmd, 0)
 		for i := range m.items {
-			m.items[i].results = []string{"👀", "👀", "👀"}
-			for j, url := range m.items[i].urls {
-				cmds = append(cmds, fetch(i, j, url))
+			m.items[i].results = map[common.Environment]string{
+				common.Development: "",
+				common.Staging:     "",
+				common.Production:  "",
 			}
+			cmds = append(cmds, fetch(i, common.Development, m.items[i].repo))
+			cmds = append(cmds, fetch(i, common.Staging, m.items[i].repo))
+			cmds = append(cmds, fetch(i, common.Production, m.items[i].repo))
+
 		}
 		cmds = append(cmds, uiCommon.UpdateEverySeconds(secondsBetweenUpdates))
 		return m, tea.Batch(cmds...)
@@ -202,7 +198,7 @@ func (m VersionsModel) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, m.CustomTableModel.View(), m.help.View(m.keys), m.errors.View())
 }
 
-func getServicesPaths() []string {
+func getMsRepositories() []repository.Repository {
 	repositories := usecases.GetRepositories()
 	msRepositories := []repository.Repository{}
 	for _, repository := range repositories {
@@ -211,18 +207,7 @@ func getServicesPaths() []string {
 		}
 	}
 
-	servicesPaths := []string{}
-	for _, msRepository := range msRepositories {
-		msPath, err := msRepository.GetMSPath()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		servicesPaths = append(servicesPaths, msPath)
-	}
-	sort.Strings(servicesPaths)
-
-	return servicesPaths
+	return msRepositories
 }
 
 func GetVersions() {

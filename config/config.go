@@ -1,8 +1,10 @@
 package config
 
 import (
+	"errors"
 	"log"
 
+	"github.com/go-fleet-manager/internal/common"
 	"gopkg.in/yaml.v2"
 )
 
@@ -18,17 +20,30 @@ type WorkflowConfig struct {
 }
 
 type EnvironmentConfig struct {
-	Name string `yaml:"name"`
-	Url  string `yaml:"url"`
+	Development string `yaml:"development"`
+	Staging     string `yaml:"staging"`
+	Production  string `yaml:"production"`
+}
+
+func (e EnvironmentConfig) GetEnvironmentUrl(environment common.Environment) (string, error) {
+	switch environment {
+	case common.Development:
+		return e.Development, nil
+	case common.Staging:
+		return e.Staging, nil
+	case common.Production:
+		return e.Production, nil
+	}
+	return "", errors.New("Environment not found")
 }
 
 type Config struct {
-	Cache              []CacheConfig       `yaml:"cache"`
-	DevMinor           WorkflowConfig      `yaml:"devMinor"`
-	MaintenanceMode    WorkflowConfig      `yaml:"maintenanceMode"`
-	ProdDeployment     WorkflowConfig      `yaml:"prodDeployment"`
-	CreateMainPRConfig WorkflowConfig      `yaml:"createMainPR"`
-	Environments       []EnvironmentConfig `yaml:"environments"`
+	Cache              []CacheConfig     `yaml:"cache"`
+	DevMinor           WorkflowConfig    `yaml:"devMinor"`
+	MaintenanceMode    WorkflowConfig    `yaml:"maintenanceMode"`
+	ProdDeployment     WorkflowConfig    `yaml:"prodDeployment"`
+	CreateMainPRConfig WorkflowConfig    `yaml:"createMainPR"`
+	Environments       EnvironmentConfig `yaml:"environments"`
 }
 
 func getConfig() Config {
@@ -74,11 +89,8 @@ func GetCreateMainPRConfig() WorkflowConfig {
 	return config.CreateMainPRConfig
 }
 
-func GetEnvironments() []EnvironmentConfig {
+func GetEnvironments() EnvironmentConfig {
 	config := getConfig()
 
-	environmentsConfigs := []EnvironmentConfig{}
-	environmentsConfigs = append(environmentsConfigs, config.Environments...)
-
-	return environmentsConfigs
+	return config.Environments
 }
