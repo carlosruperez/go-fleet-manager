@@ -24,8 +24,6 @@ func (m appModel) view() string {
 		viewString = lipgloss.JoinHorizontal(lipgloss.Left, m.menuModel.View(), m.prodDeploymentModel.View())
 	case m.focusedView == string(menu.CreatePRsToMainOption):
 		viewString = lipgloss.JoinHorizontal(lipgloss.Left, m.menuModel.View(), m.createMainPRModel.View())
-	case m.focusedView == string(menu.VersionsTomlvsDeployOption):
-		viewString = lipgloss.JoinHorizontal(lipgloss.Left, m.menuModel.View(), m.versionsTomlVsDeployModel.View())
 	default:
 		viewString = lipgloss.JoinVertical(lipgloss.Left, m.menuModel.View(), m.help.View(m.keys))
 	}
