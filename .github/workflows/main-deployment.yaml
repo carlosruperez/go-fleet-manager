@@ -1,4 +1,4 @@
-name: PROD - Fargate Release deployment
+name: Release Deployment
 run-name: ${{ inputs.appName }} deployment to ${{ inputs.env }}
 
 on:

@@ -1,4 +1,4 @@
-name: Microservices Maintenance Mode
+name: LOCAL - Microservices Maintenance Mode
 run-name: ${{ inputs.unique_id }} Microservices Maintenance Mode
 
 on:

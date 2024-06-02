@@ -1,4 +1,4 @@
-name: Update Poetry version in develop
+name: LOCAL - Update Poetry version in develop
 run-name: Increase application version in develop
 
 on:
