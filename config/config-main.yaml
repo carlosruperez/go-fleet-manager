@@ -1,12 +1,12 @@
 cache:
   - name: tfg-dev-redis
-    host: http://143.244.206.126
+    host: 143.244.206.126
     port: 6384
   - name: tfg-preprod-redis
-    host: http://143.244.206.126
+    host: 143.244.206.126
     port: 6385
   - name: tfg-prod-redis
-    host: http://143.244.206.126
+    host: 143.244.206.126
     port: 6386
 
 devMinor:
@@ -17,7 +17,7 @@ maintenanceMode:
   workflowId: main-maintenance.yaml
   workflowRepository: carlosruperez/go-fleet-manager
 
-prodDeployment:
+deployment:
   workflowId: main-deployment.yaml
   workflowRepository: carlosruperez/go-fleet-manager
 
@@ -25,6 +25,6 @@ createMainPR:
   workflowId: main-pr-release-to-main.yaml
   workflowRepository: carlosruperez/go-fleet-manager
 environments:
-  development: "http://143.244.206.126:8080/"
-  staging: "http://143.244.206.126:8080/"
-  production: "http://143.244.206.126:8080/"
+  development: "http://143.244.206.126:8000/dev/"
+  staging: "http://143.244.206.126:8000/pre/"
+  production: "http://143.244.206.126:8000/prod/"

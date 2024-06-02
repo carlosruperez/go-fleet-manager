@@ -20,8 +20,8 @@ func (m appModel) view() string {
 		viewString = lipgloss.JoinHorizontal(lipgloss.Left, m.menuModel.View(), m.maintenanceMode.View())
 	case m.focusedView == string(menu.DevMinorOption):
 		viewString = lipgloss.JoinHorizontal(lipgloss.Left, m.menuModel.View(), m.devMinorModel.View())
-	case m.focusedView == string(menu.PRODDeploymentOption):
-		viewString = lipgloss.JoinHorizontal(lipgloss.Left, m.menuModel.View(), m.prodDeploymentModel.View())
+	case m.focusedView == string(menu.DeploymentOption):
+		viewString = lipgloss.JoinHorizontal(lipgloss.Left, m.menuModel.View(), m.deploymentModel.View())
 	case m.focusedView == string(menu.CreatePRsToMainOption):
 		viewString = lipgloss.JoinHorizontal(lipgloss.Left, m.menuModel.View(), m.createMainPRModel.View())
 	default:

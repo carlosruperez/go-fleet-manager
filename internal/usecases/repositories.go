@@ -23,6 +23,10 @@ type branch struct {
 	Name string `json:"name"`
 }
 
+type tag struct {
+	Name string `json:"name"`
+}
+
 func GetRepositories() []repository.Repository {
 	outputBytes, _, err := gh.Exec("repo", "list", "carlosruperez", "-L", "100")
 	if err != nil {
@@ -104,4 +108,26 @@ func GetRepositoryBranches(repository repository.Repository, ctx context.Context
 	}
 
 	return branchStrs, nil
+}
+
+func GetRepositoryTags(repository repository.Repository, ctx context.Context) ([]string, error) {
+	var tags []tag
+	endpoint := "repos/" + repository.FullName + "/tags"
+	outputBytes, _, err := gh.ExecContext(ctx, "api", endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(outputBytes.Bytes(), &tags)
+	if err != nil {
+		return nil, err
+	}
+
+	var tagStrs []string
+
+	for _, tag := range tags {
+		tagStrs = append(tagStrs, tag.Name)
+	}
+
+	return tagStrs, nil
 }
