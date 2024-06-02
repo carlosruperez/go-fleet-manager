@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	minTerminalWidth  = 160
-	minTerminalHeight = 35
+	minTerminalWidth  = 80
+	minTerminalHeight = 15
 )
 
 func (m *appModel) syncTerminal(msg tea.Msg) {
