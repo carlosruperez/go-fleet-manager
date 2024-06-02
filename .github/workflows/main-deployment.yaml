@@ -34,11 +34,13 @@ jobs:
           echo ${{ github.event.inputs.dockerImageVersion }}
           echo ${{ github.event.inputs.env }}
           echo ${{ github.event.inputs.appName }}
+          echo ${{ secrets.DO_SERVER_IP }}
+          echo ${{ secrets.DO_SERVER_USER }}
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - name: executing remote ssh commands using password
+      - name: executing remote ssh command
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.DO_SERVER_IP }}
