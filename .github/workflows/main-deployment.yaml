@@ -34,8 +34,6 @@ jobs:
           echo ${{ github.event.inputs.dockerImageVersion }}
           echo ${{ github.event.inputs.env }}
           echo ${{ github.event.inputs.appName }}
-          echo ${{ secrets.DO_SERVER_IP }}
-          echo ${{ secrets.DO_SERVER_USER }}
   build:
     name: Build
     runs-on: ubuntu-latest
