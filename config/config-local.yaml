@@ -26,9 +26,6 @@ createMainPR:
   workflowRepository: carlosruperez/go-fleet-manager
 
 environments:
-  - name: DEV
-    url: "http://carlosruperez.internal-api.dev.internal/"
-  - name: PRE
-    url: "http://carlosruperez.internal-api.pre.internal/"
-  - name: PROD
-    url: "http://carlosruperez.internal-api.internal/"
+  development: "http://127.0.0.1:8000/"
+  staging: "http://127.0.0.1:8000/"
+  production: "http://127.0.0.1:8000/"
