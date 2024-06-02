@@ -16,11 +16,11 @@ func NewMenuModel() MenuModel {
 		{Title: VersionsOption},
 		{Title: RemoveCacheOption},
 		{Title: MaintenanceOption},
-		{Title: MigrationsOption},
+		//{Title: MigrationsOption},
 		{Title: DevMinorOption},
 		{Title: CreatePRsToMainOption},
 		{Title: DeploymentOption},
-		{Title: DeploymentPlanOption},
+		//{Title: DeploymentPlanOption},
 	}
 	return MenuModel{Choices: choices, selectedChoice: -1}
 }

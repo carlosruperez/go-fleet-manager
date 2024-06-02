@@ -25,18 +25,21 @@ type viewOption int
 
 const (
 	tableOption viewOption = iota
+	environmentOption
 	tagsOption
 )
 
 type DeploymentModel struct {
 	uiCustomTable.CustomTableModel
-	keys         deploymentKeyMap
-	help         help.Model
-	errors       uiErrorsModel.ErrorsModel
-	items        []deploymentItem
-	selectedItem int
-	tags         list.Model
-	focusedView  viewOption
+	keys                deploymentKeyMap
+	help                help.Model
+	errors              uiErrorsModel.ErrorsModel
+	items               []deploymentItem
+	selectedItem        int
+	selectedEnvironment common.Environment
+	tags                list.Model
+	environments        list.Model
+	focusedView         viewOption
 }
 
 type tagItem struct {
@@ -44,15 +47,25 @@ type tagItem struct {
 	list.Item
 }
 
+func (t tagItem) Title() string       { return t.name }
+func (t tagItem) Description() string { return t.name }
+func (t tagItem) FilterValue() string { return t.name }
+
+type environmentItem struct {
+	name        string
+	environment common.Environment
+	list.Item
+}
+
+func (t environmentItem) Title() string       { return t.name }
+func (t environmentItem) Description() string { return t.name }
+func (t environmentItem) FilterValue() string { return t.name }
+
 type deploymentItem struct {
 	repository  repository.Repository
 	selectedTag string
 	result      string
 }
-
-func (t tagItem) Title() string       { return t.name }
-func (t tagItem) Description() string { return t.name }
-func (t tagItem) FilterValue() string { return t.name }
 
 type deploymentKeyMap struct {
 	uiCommon.KeyMap
@@ -129,11 +142,25 @@ func NewDeploymentModel() DeploymentModel {
 	delegate := list.NewDefaultDelegate()
 	delegate.ShowDescription = false
 	newList := list.New([]list.Item{}, delegate, 50, 13)
-	newList.Title = "Select a branch to create the PR from:"
+	newList.Title = "Select a tag version to deploy:"
 	newList.SetShowHelp(false)
 	newList.SetShowFilter(false)
 	newList.SetShowPagination(false)
 	newList.SetShowStatusBar(false)
+
+	environmentsDelegate := list.NewDefaultDelegate()
+	environmentsDelegate.ShowDescription = false
+	environmentItems := []list.Item{
+		environmentItem{name: "dev", environment: common.Development},
+		environmentItem{name: "pre", environment: common.Staging},
+		environmentItem{name: "prod", environment: common.Production},
+	}
+	environmentsList := list.New(environmentItems, delegate, 55, 13)
+	environmentsList.Title = "Select an Environment to deploy the tags version:"
+	environmentsList.SetShowHelp(false)
+	environmentsList.SetShowFilter(false)
+	environmentsList.SetShowPagination(false)
+	environmentsList.SetShowStatusBar(false)
 
 	m := DeploymentModel{
 		keys:             deploymentKeys,
@@ -142,7 +169,8 @@ func NewDeploymentModel() DeploymentModel {
 		items:            items,
 		CustomTableModel: customTableModel,
 		tags:             newList,
-		focusedView:      tableOption,
+		environments:     environmentsList,
+		focusedView:      environmentOption,
 	}
 
 	return m
@@ -179,7 +207,7 @@ func initSelectRepositoryTags(repo repository.Repository, selectedItem int) tea.
 	}
 }
 
-func deploy(index int, repo repository.Repository, tagVersion string) tea.Cmd {
+func deploy(index int, repo repository.Repository, tagVersion string, environment common.Environment) tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background()) // TODO: use context to get feedback
 	go func() tea.Msg {
 		<-ctx.Done()
@@ -188,7 +216,7 @@ func deploy(index int, repo repository.Repository, tagVersion string) tea.Cmd {
 		return deploymentMsg{index, repo, "❌" + "Cancelled", nil}
 	}()
 	return func() tea.Msg {
-		_, _, err := usecases.Deploy(repo, tagVersion, ctx)
+		_, _, err := usecases.Deploy(repo, tagVersion, environment, ctx)
 		if err != nil {
 			cancel()
 			return deploymentMsg{index, repo, "❌", err}
@@ -235,10 +263,32 @@ func (m DeploymentModel) updateTagsList(msg tea.Msg) (DeploymentModel, tea.Cmd) 
 	return m, cmd
 }
 
+func (m DeploymentModel) updateEnvironmentList(msg tea.Msg) (DeploymentModel, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, m.keys.Quit):
+			return m, tea.Quit
+		case key.Matches(msg, m.keys.Enter):
+			selectedEnvironment := m.environments.SelectedItem().(environmentItem)
+			m.focusedView = tableOption
+			m.selectedEnvironment = selectedEnvironment.environment
+			return m, nil
+		}
+	}
+	newListModel, cmd := m.environments.Update(msg)
+	m.environments = newListModel
+	return m, cmd
+}
+
 func (m DeploymentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.focusedView == tagsOption {
 		return m.updateTagsList(msg)
+	}
+
+	if m.focusedView == environmentOption {
+		return m.updateEnvironmentList(msg)
 	}
 
 	switch msg := msg.(type) {
@@ -259,13 +309,13 @@ func (m DeploymentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectedItem = m.Cursor()
 			return m, initSelectRepositoryTags(m.items[m.selectedItem].repository, m.selectedItem)
 		case key.Matches(msg, m.keys.Run):
-			return m, deploy(m.Cursor(), m.items[m.Cursor()].repository, m.items[m.Cursor()].selectedTag)
+			return m, deploy(m.Cursor(), m.items[m.Cursor()].repository, m.items[m.Cursor()].selectedTag, m.selectedEnvironment)
 		case key.Matches(msg, m.keys.Enter):
 			cmds := make([]tea.Cmd, 0)
 
 			for index, item := range m.items {
 				if item.selectedTag != "" {
-					cmds = append(cmds, deploy(index, item.repository, item.selectedTag))
+					cmds = append(cmds, deploy(index, item.repository, item.selectedTag, m.selectedEnvironment))
 				}
 			}
 			return m, tea.Batch(cmds...)
@@ -284,6 +334,9 @@ func (m DeploymentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m DeploymentModel) View() string {
+	if m.focusedView == environmentOption {
+		return lipgloss.JoinVertical(lipgloss.Left, m.environments.View(), m.help.View(m.keys), m.errors.View())
+	}
 	if m.focusedView == tagsOption {
 		if len(m.tags.Items()) > 0 {
 			return lipgloss.JoinVertical(lipgloss.Left, m.tags.View(), m.help.View(m.keys), m.errors.View())
@@ -291,7 +344,11 @@ func (m DeploymentModel) View() string {
 			return lipgloss.JoinVertical(lipgloss.Left, "🕦 loading...", m.errors.View())
 		}
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, m.CustomTableModel.View(), m.help.View(m.keys), m.errors.View())
+
+	deployToStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+	deployTo := "DEPLOY TO: " + deployToStyle.Render(string(m.selectedEnvironment)) + "\n"
+
+	return lipgloss.JoinVertical(lipgloss.Left, m.CustomTableModel.View(), deployTo, m.help.View(m.keys), m.errors.View())
 }
 
 func Deploy() {
