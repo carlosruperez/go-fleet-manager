@@ -1,4 +1,4 @@
-name: Create PR from release to main
+name: Create PR from ${{ inputs.releaseBranch }} to main
 run-name: PR from ${{ inputs.appGithubRepository }}  ${{ inputs.releaseBranch }} to main
 
 on:
@@ -14,16 +14,22 @@ on:
         type: choice
         options:
         - 'carlosruperez/tfg-ms-foo1-api-server'
+        - 'carlosruperez/tfg-ms-foo2-api-server'
 
 jobs:
-  test_delayed_job:
-    name: Local tests
+  poetry_version:
+    name: Create PR to main
     runs-on: ubuntu-latest
     steps:
-    - name: Print args
-      run: |
-        echo ${{ github.event.inputs.releaseBranch }}
-        echo ${{ github.event.inputs.appGithubRepository }}
-    - name: Delay
-      run: |
-        sleep 10
+      - name: Checkout Application Repository
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.appGithubRepository }} # Ex: celering/travels-ms-configuration-daas-api-server
+          token: ${{ secrets.AUTOMATION_GITHUB_API_TOKEN }}
+          ref: ${{ github.event.inputs.releaseBranch }}
+      - name: PR to main
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_GITHUB_API_TOKEN }}
+        id: pr_create
+        run: |
+          gh pr create --base main --head ${{ github.event.inputs.releaseBranch }} --title "from ${{ github.event.inputs.releaseBranch }} to main" --body ""
