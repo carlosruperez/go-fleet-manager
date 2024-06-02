@@ -25,6 +25,6 @@ createMainPR:
   workflowId: main-pr-release-to-main.yaml
   workflowRepository: carlosruperez/go-fleet-manager
 environments:
-  development: "http://143.244.206.126:8080/"
-  staging: "http://143.244.206.126:8080/"
-  production: "http://143.244.206.126:8080/"
+  development: "http://143.244.206.126:8000/dev/"
+  staging: "http://143.244.206.126:8000/pre/"
+  production: "http://143.244.206.126:8000/prod/"
