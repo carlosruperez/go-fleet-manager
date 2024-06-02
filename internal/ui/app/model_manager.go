@@ -13,19 +13,18 @@ import (
 )
 
 type appModel struct {
-	keys                      uiCommon.KeyMap
-	help                      help.Model
-	focusedView               string
-	menuModel                 menu.MenuModel
-	versionsModel             ui.VersionsModel
-	removeCacheModel          ui.RemoveCacheModel
-	maintenanceMode           ui.MaintenanceModeModel
-	devMinorModel             ui.DevMinorModel
-	prodDeploymentModel       ui.ProdDeploymentModel
-	createMainPRModel         createMainPR.CreateMainPRModel
-	versionsTomlVsDeployModel ui.VersionsTomlVsDeployModel
-	viewport                  viewport.Model
-	terminalSizeReady         bool
+	keys                uiCommon.KeyMap
+	help                help.Model
+	focusedView         string
+	menuModel           menu.MenuModel
+	versionsModel       ui.VersionsModel
+	removeCacheModel    ui.RemoveCacheModel
+	maintenanceMode     ui.MaintenanceModeModel
+	devMinorModel       ui.DevMinorModel
+	prodDeploymentModel ui.ProdDeploymentModel
+	createMainPRModel   createMainPR.CreateMainPRModel
+	viewport            viewport.Model
+	terminalSizeReady   bool
 }
 
 func (m *appModel) resetAppModel() {
@@ -42,8 +41,6 @@ func (m *appModel) resetAppModel() {
 		m.prodDeploymentModel = ui.ProdDeploymentModel{}
 	case string(menu.CreatePRsToMainOption):
 		m.createMainPRModel = createMainPR.CreateMainPRModel{}
-	case string(menu.VersionsTomlvsDeployOption):
-		m.versionsTomlVsDeployModel = ui.VersionsTomlVsDeployModel{}
 	}
 	m.focusedView = "menu"
 }
@@ -95,13 +92,6 @@ func (m appModel) forwardMsgToView(msg tea.Msg, view string) (tea.Model, tea.Cmd
 		}
 		newModel, cmd := m.createMainPRModel.Update(msg)
 		m.createMainPRModel = newModel.(createMainPR.CreateMainPRModel)
-		return m, cmd
-	case string(menu.VersionsTomlvsDeployOption):
-		if (m.versionsTomlVsDeployModel.Equals(&ui.VersionsTomlVsDeployModel{})) {
-			m.versionsTomlVsDeployModel = ui.NewVersionsTomlVsDeployModel()
-		}
-		newModel, cmd := m.versionsTomlVsDeployModel.Update(msg)
-		m.versionsTomlVsDeployModel = newModel.(ui.VersionsTomlVsDeployModel)
 		return m, cmd
 	}
 	return m, nil
