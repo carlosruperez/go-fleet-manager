@@ -1,4 +1,4 @@
-name: Create PR from ${{ inputs.releaseBranch }} to main
+name: Create PR from branch to main
 run-name: PR from ${{ inputs.appGithubRepository }}  ${{ inputs.releaseBranch }} to main
 
 on:
