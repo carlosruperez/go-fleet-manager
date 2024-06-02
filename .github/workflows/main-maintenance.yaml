@@ -1,0 +1,38 @@
+name: Microservices Maintenance Mode
+run-name: ${{ inputs.unique_id }} Microservices Maintenance Mode
+
+on:
+  workflow_dispatch:
+    inputs:
+      unique_id:
+        description: 'Unique ID for the run'
+        required: false
+      action:
+        description: 'Select enable/disable Maintenance Mode'
+        required: true
+        type: choice
+        options:
+        - enable
+        - disable
+      environment:
+        description: 'Select environment'
+        required: true
+        type: choice
+        options:
+        - dev
+        - preprod
+        - prod
+
+jobs:
+  test_delayed_job:
+    name: Local tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Print args
+      run: |
+        echo ${{ github.event.inputs.unique_id }}
+        echo ${{ github.event.inputs.environment }}
+        echo ${{ github.event.inputs.action }}
+    - name: Delay
+      run: |
+        sleep 10

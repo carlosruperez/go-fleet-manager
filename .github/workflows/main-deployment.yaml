@@ -1,0 +1,50 @@
+name: PROD - Fargate Release deployment
+run-name: ${{ inputs.appName }} deployment to ${{ inputs.env }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      appName:
+        description: 'Application to deploy'
+        required: true
+        type: choice
+        options:
+        - tfg-ms-foo1-api-server
+        - tfg-ms-foo2-api-server
+      env:
+        description: 'Environment where the app will be deployed'
+        required: true
+        type: choice
+        options:
+        - dev
+        - pre
+        - prod
+      dockerImageVersion:
+        description: 'Tag version to deploy'
+        required: true
+        type: string
+
+jobs:
+  print_args:
+    name: Print args
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print args
+        run: |
+          echo ${{ github.event.inputs.dockerImageVersion }}
+          echo ${{ github.event.inputs.env }}
+          echo ${{ github.event.inputs.appName }}
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: executing remote ssh commands using password
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DO_SERVER_IP }}
+          username: ${{ secrets.DO_SERVER_USER }}
+          key: ${{ secrets.DO_KEY }}
+          script: |
+            echo ${{ github.event.inputs.dockerImageVersion }} >> runned_from_gh
+            echo ${{ github.event.inputs.env }} >> runned_from_gh
+            echo ${{ github.event.inputs.appName }} >> runned_from_gh

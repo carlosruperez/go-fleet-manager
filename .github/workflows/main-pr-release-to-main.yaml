@@ -1,0 +1,29 @@
+name: Create PR from release to main
+run-name: PR from ${{ inputs.appGithubRepository }}  ${{ inputs.releaseBranch }} to main
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseBranch:
+        description: 'Release branch name to do the PR'
+        required: true
+        type: string
+      appGithubRepository:
+        description: 'Application Github Repository'
+        required: true
+        type: choice
+        options:
+        - 'carlosruperez/tfg-ms-foo1-api-server'
+
+jobs:
+  test_delayed_job:
+    name: Local tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Print args
+      run: |
+        echo ${{ github.event.inputs.releaseBranch }}
+        echo ${{ github.event.inputs.appGithubRepository }}
+    - name: Delay
+      run: |
+        sleep 10
