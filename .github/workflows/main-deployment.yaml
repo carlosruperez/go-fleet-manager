@@ -45,6 +45,4 @@ jobs:
           username: ${{ secrets.DO_SERVER_USER }}
           key: ${{ secrets.DO_KEY }}
           script: |
-            echo ${{ github.event.inputs.dockerImageVersion }} >> runned_from_gh
-            echo ${{ github.event.inputs.env }} >> runned_from_gh
-            echo ${{ github.event.inputs.appName }} >> runned_from_gh
+            bash up.sh ${{ github.event.inputs.appName }} ${{ github.event.inputs.env }} ${{ github.event.inputs.dockerImageVersion }}
