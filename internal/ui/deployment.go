@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"github.com/charmbracelet/bubbles/list"
 	"os"
 	"reflect"
 
@@ -20,33 +21,63 @@ import (
 	"github.com/go-fleet-manager/internal/usecases"
 )
 
+type viewOption int
+
+const (
+	tableOption viewOption = iota
+	tagsOption
+)
+
 type DeploymentModel struct {
 	uiCustomTable.CustomTableModel
-	keys   deploymentKeyMap
-	help   help.Model
-	errors uiErrorsModel.ErrorsModel
-	items  []deploymentItem
+	keys         deploymentKeyMap
+	help         help.Model
+	errors       uiErrorsModel.ErrorsModel
+	items        []deploymentItem
+	selectedItem int
+	tags         list.Model
+	focusedView  viewOption
+}
+
+type tagItem struct {
+	name string
+	list.Item
 }
 
 type deploymentItem struct {
-	repository repository.Repository
-	result     string
+	repository  repository.Repository
+	selectedTag string
+	result      string
 }
+
+func (t tagItem) Title() string       { return t.name }
+func (t tagItem) Description() string { return t.name }
+func (t tagItem) FilterValue() string { return t.name }
 
 type deploymentKeyMap struct {
 	uiCommon.KeyMap
-	Enter key.Binding
+	Enter  key.Binding
+	Run    key.Binding
+	Select key.Binding
 }
 
 func (k deploymentKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Enter, k.Esc, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.Select, k.Run, k.Enter, k.Esc, k.Quit}
 }
 
 var deploymentKeys = deploymentKeyMap{
 	KeyMap: uiCommon.Keys,
+	Run: key.NewBinding(
+		key.WithKeys("r"),
+		key.WithHelp(styles.KeyBindingStyle.Render("r"), "Run selected option"),
+	),
+	Select: key.NewBinding(
+		key.WithKeys("s"),
+		key.WithHelp(styles.KeyBindingStyle.Render("s"), "Select tag"),
+	),
 	Enter: key.NewBinding(
 		key.WithKeys("enter"),
-		key.WithHelp(styles.KeyBindingStyle.Render("enter"), "Deploy to PROD"),
+		key.WithHelp(styles.KeyBindingStyle.Render("enter"), "Deploy All"),
 	),
 }
 
@@ -57,7 +88,7 @@ func (model *DeploymentModel) Equals(other *DeploymentModel) bool {
 func (m *DeploymentModel) updateTable() {
 	values := []table.Row{}
 	for i, item := range m.items {
-		values = append(values, table.Row{fmt.Sprint(i + 1), item.repository.Name, item.result})
+		values = append(values, table.Row{fmt.Sprint(i + 1), item.repository.Name, item.selectedTag, item.result})
 	}
 	m.SetRows(values)
 }
@@ -85,14 +116,24 @@ func NewDeploymentModel() DeploymentModel {
 	columns := []table.Column{
 		{Title: "n°", Width: 5},
 		{Title: "Repository", Width: 50},
+		{Title: "Selected Tag", Width: 25},
 		{Title: "Result", Width: 15},
 	}
 
 	values := []table.Row{}
 	for i, item := range items {
-		values = append(values, table.Row{fmt.Sprint(i + 1), item.repository.Name, item.result})
+		values = append(values, table.Row{fmt.Sprint(i + 1), item.repository.Name, "", item.result})
 	}
 	customTableModel := uiCustomTable.NewCustomTableModel(columns, values)
+
+	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = false
+	newList := list.New([]list.Item{}, delegate, 50, 13)
+	newList.Title = "Select a branch to create the PR from:"
+	newList.SetShowHelp(false)
+	newList.SetShowFilter(false)
+	newList.SetShowPagination(false)
+	newList.SetShowStatusBar(false)
 
 	m := DeploymentModel{
 		keys:             deploymentKeys,
@@ -100,6 +141,8 @@ func NewDeploymentModel() DeploymentModel {
 		errors:           uiErrorsModel.NewErrorsModel(),
 		items:            items,
 		CustomTableModel: customTableModel,
+		tags:             newList,
+		focusedView:      tableOption,
 	}
 
 	return m
@@ -112,7 +155,31 @@ type deploymentMsg struct {
 	err    error
 }
 
-func deploy(index int, repo repository.Repository) tea.Cmd {
+type selectRepositoryTagsMsg struct {
+	selectedItem int
+	tags         []string
+	err          error
+}
+
+func initSelectRepositoryTags(repo repository.Repository, selectedItem int) tea.Cmd {
+	ctx, cancel := context.WithCancel(context.Background()) // TODO: use context to get feedback
+	go func() tea.Msg {
+		<-ctx.Done()
+		// The context was cancelled, stop the update process
+		// and return a special message
+		return selectRepositoryTagsMsg{selectedItem, []string{"❌" + "Cancelled"}, nil}
+	}()
+	return func() tea.Msg {
+		tags, err := usecases.GetRepositoryTags(repo, ctx)
+		if err != nil {
+			cancel()
+			return selectRepositoryTagsMsg{selectedItem, nil, err}
+		}
+		return selectRepositoryTagsMsg{selectedItem, tags, nil}
+	}
+}
+
+func deploy(index int, repo repository.Repository, tagVersion string) tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background()) // TODO: use context to get feedback
 	go func() tea.Msg {
 		<-ctx.Done()
@@ -121,12 +188,7 @@ func deploy(index int, repo repository.Repository) tea.Cmd {
 		return deploymentMsg{index, repo, "❌" + "Cancelled", nil}
 	}()
 	return func() tea.Msg {
-		version, err := usecases.GetVersion(repo, common.Staging)
-		if err != nil {
-			cancel()
-			return deploymentMsg{index, repo, "❌", err}
-		}
-		_, _, err = usecases.Deploy(repo, version, ctx)
+		_, _, err := usecases.Deploy(repo, tagVersion, ctx)
 		if err != nil {
 			cancel()
 			return deploymentMsg{index, repo, "❌", err}
@@ -139,7 +201,45 @@ func (m DeploymentModel) Init() tea.Cmd {
 	return nil
 }
 
+func (m DeploymentModel) updateTagsList(msg tea.Msg) (DeploymentModel, tea.Cmd) {
+	switch msg := msg.(type) {
+	case selectRepositoryTagsMsg:
+		var tagItems []list.Item
+
+		for _, item := range msg.tags {
+			tagItems = append(tagItems, tagItem{name: item})
+		}
+		m.tags.SetItems(tagItems)
+		if msg.err != nil {
+			m.errors.AddError(msg.err)
+		}
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, m.keys.Quit):
+			return m, tea.Quit
+		case key.Matches(msg, m.keys.Enter):
+			tagName := m.tags.SelectedItem().(tagItem).name
+			m.tags.SetItems(nil)
+			m.focusedView = tableOption
+			m.items[m.selectedItem].selectedTag = tagName
+			m.updateTable()
+			return m, nil
+		case key.Matches(msg, m.keys.Esc):
+			m.tags.SetItems(nil)
+			m.focusedView = tableOption
+			return m, nil
+		}
+	}
+	newListModel, cmd := m.tags.Update(msg)
+	m.tags = newListModel
+	return m, cmd
+}
+
 func (m DeploymentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+
+	if m.focusedView == tagsOption {
+		return m.updateTagsList(msg)
+	}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -154,8 +254,21 @@ func (m DeploymentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.Cursor() < len(m.items)-1 {
 				m.SetCursor(m.Cursor() + 1)
 			}
+		case key.Matches(msg, m.keys.Select):
+			m.focusedView = tagsOption
+			m.selectedItem = m.Cursor()
+			return m, initSelectRepositoryTags(m.items[m.selectedItem].repository, m.selectedItem)
+		case key.Matches(msg, m.keys.Run):
+			return m, deploy(m.Cursor(), m.items[m.Cursor()].repository, m.items[m.Cursor()].selectedTag)
 		case key.Matches(msg, m.keys.Enter):
-			return m, deploy(m.Cursor(), m.items[m.Cursor()].repository)
+			cmds := make([]tea.Cmd, 0)
+
+			for index, item := range m.items {
+				if item.selectedTag != "" {
+					cmds = append(cmds, deploy(index, item.repository, item.selectedTag))
+				}
+			}
+			return m, tea.Batch(cmds...)
 		case key.Matches(msg, m.keys.Esc):
 			m.resetResults()
 			return m, nil
@@ -171,6 +284,13 @@ func (m DeploymentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m DeploymentModel) View() string {
+	if m.focusedView == tagsOption {
+		if len(m.tags.Items()) > 0 {
+			return lipgloss.JoinVertical(lipgloss.Left, m.tags.View(), m.help.View(m.keys), m.errors.View())
+		} else {
+			return lipgloss.JoinVertical(lipgloss.Left, "🕦 loading...", m.errors.View())
+		}
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, m.CustomTableModel.View(), m.help.View(m.keys), m.errors.View())
 }
 
