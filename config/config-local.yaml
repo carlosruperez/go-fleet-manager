@@ -17,7 +17,7 @@ maintenanceMode:
   workflowId: local-maintenance-tests.yaml
   workflowRepository: carlosruperez/go-fleet-manager
 
-prodDeployment:
+deployment:
   workflowId: local-deployment-tests.yaml
   workflowRepository: carlosruperez/go-fleet-manager
 

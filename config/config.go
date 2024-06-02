@@ -41,7 +41,7 @@ type Config struct {
 	Cache              []CacheConfig     `yaml:"cache"`
 	DevMinor           WorkflowConfig    `yaml:"devMinor"`
 	MaintenanceMode    WorkflowConfig    `yaml:"maintenanceMode"`
-	ProdDeployment     WorkflowConfig    `yaml:"prodDeployment"`
+	Deployment         WorkflowConfig    `yaml:"deployment"`
 	CreateMainPRConfig WorkflowConfig    `yaml:"createMainPR"`
 	Environments       EnvironmentConfig `yaml:"environments"`
 }
@@ -77,10 +77,10 @@ func GetMaintenanceModeConfig() WorkflowConfig {
 	return config.MaintenanceMode
 }
 
-func GetProdDeploymentConfig() WorkflowConfig {
+func GetDeploymentConfig() WorkflowConfig {
 	config := getConfig()
 
-	return config.ProdDeployment
+	return config.Deployment
 }
 
 func GetCreateMainPRConfig() WorkflowConfig {

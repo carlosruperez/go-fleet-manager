@@ -20,29 +20,29 @@ import (
 	"github.com/go-fleet-manager/internal/usecases"
 )
 
-type ProdDeploymentModel struct {
+type DeploymentModel struct {
 	uiCustomTable.CustomTableModel
-	keys   prodDeploymentKeyMap
+	keys   deploymentKeyMap
 	help   help.Model
 	errors uiErrorsModel.ErrorsModel
-	items  []prodDeploymentItem
+	items  []deploymentItem
 }
 
-type prodDeploymentItem struct {
+type deploymentItem struct {
 	repository repository.Repository
 	result     string
 }
 
-type prodDeploymentKeyMap struct {
+type deploymentKeyMap struct {
 	uiCommon.KeyMap
 	Enter key.Binding
 }
 
-func (k prodDeploymentKeyMap) ShortHelp() []key.Binding {
+func (k deploymentKeyMap) ShortHelp() []key.Binding {
 	return []key.Binding{k.Up, k.Down, k.Enter, k.Esc, k.Quit}
 }
 
-var prodDeploymentKeys = prodDeploymentKeyMap{
+var deploymentKeys = deploymentKeyMap{
 	KeyMap: uiCommon.Keys,
 	Enter: key.NewBinding(
 		key.WithKeys("enter"),
@@ -50,11 +50,11 @@ var prodDeploymentKeys = prodDeploymentKeyMap{
 	),
 }
 
-func (model *ProdDeploymentModel) Equals(other *ProdDeploymentModel) bool {
+func (model *DeploymentModel) Equals(other *DeploymentModel) bool {
 	return reflect.DeepEqual(model.items, other.items)
 }
 
-func (m *ProdDeploymentModel) updateTable() {
+func (m *DeploymentModel) updateTable() {
 	values := []table.Row{}
 	for i, item := range m.items {
 		values = append(values, table.Row{fmt.Sprint(i + 1), item.repository.Name, item.result})
@@ -62,16 +62,16 @@ func (m *ProdDeploymentModel) updateTable() {
 	m.SetRows(values)
 }
 
-func (m *ProdDeploymentModel) resetResults() {
+func (m *DeploymentModel) resetResults() {
 	for i := range m.items {
 		m.items[i].result = ""
 	}
 	m.updateTable()
 }
 
-func NewProdDeploymentModel() ProdDeploymentModel {
+func NewDeploymentModel() DeploymentModel {
 
-	items := []prodDeploymentItem{}
+	items := []deploymentItem{}
 
 	repositories := usecases.GetRepositories()
 
@@ -79,7 +79,7 @@ func NewProdDeploymentModel() ProdDeploymentModel {
 		if repo.Type != common.Microservice {
 			continue
 		}
-		items = append(items, prodDeploymentItem{repository: repo})
+		items = append(items, deploymentItem{repository: repo})
 	}
 
 	columns := []table.Column{
@@ -94,8 +94,8 @@ func NewProdDeploymentModel() ProdDeploymentModel {
 	}
 	customTableModel := uiCustomTable.NewCustomTableModel(columns, values)
 
-	m := ProdDeploymentModel{
-		keys:             prodDeploymentKeys,
+	m := DeploymentModel{
+		keys:             deploymentKeys,
 		help:             help.New(),
 		errors:           uiErrorsModel.NewErrorsModel(),
 		items:            items,
@@ -105,41 +105,41 @@ func NewProdDeploymentModel() ProdDeploymentModel {
 	return m
 }
 
-type prodDeploymentMsg struct {
+type deploymentMsg struct {
 	index  int
 	repo   repository.Repository
 	result string
 	err    error
 }
 
-func prodDeploy(index int, repo repository.Repository) tea.Cmd {
+func deploy(index int, repo repository.Repository) tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background()) // TODO: use context to get feedback
 	go func() tea.Msg {
 		<-ctx.Done()
 		// The context was cancelled, stop the update process
 		// and return a special message
-		return prodDeploymentMsg{index, repo, "❌" + "Cancelled", nil}
+		return deploymentMsg{index, repo, "❌" + "Cancelled", nil}
 	}()
 	return func() tea.Msg {
 		version, err := usecases.GetVersion(repo, common.Staging)
 		if err != nil {
 			cancel()
-			return prodDeploymentMsg{index, repo, "❌", err}
+			return deploymentMsg{index, repo, "❌", err}
 		}
-		_, _, err = usecases.ProdDeploy(repo, version, ctx)
+		_, _, err = usecases.Deploy(repo, version, ctx)
 		if err != nil {
 			cancel()
-			return prodDeploymentMsg{index, repo, "❌", err}
+			return deploymentMsg{index, repo, "❌", err}
 		}
-		return prodDeploymentMsg{index, repo, "🚀", nil}
+		return deploymentMsg{index, repo, "🚀", nil}
 	}
 }
 
-func (m ProdDeploymentModel) Init() tea.Cmd {
+func (m DeploymentModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m ProdDeploymentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m DeploymentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -155,12 +155,12 @@ func (m ProdDeploymentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.SetCursor(m.Cursor() + 1)
 			}
 		case key.Matches(msg, m.keys.Enter):
-			return m, prodDeploy(m.Cursor(), m.items[m.Cursor()].repository)
+			return m, deploy(m.Cursor(), m.items[m.Cursor()].repository)
 		case key.Matches(msg, m.keys.Esc):
 			m.resetResults()
 			return m, nil
 		}
-	case prodDeploymentMsg:
+	case deploymentMsg:
 		m.items[msg.index].result = msg.result
 		if msg.err != nil {
 			m.errors.AddError(msg.err)
@@ -170,13 +170,13 @@ func (m ProdDeploymentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m ProdDeploymentModel) View() string {
+func (m DeploymentModel) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, m.CustomTableModel.View(), m.help.View(m.keys), m.errors.View())
 }
 
-func ProdDeploy() {
-	prodDeploymentModel := NewProdDeploymentModel()
-	if _, err := tea.NewProgram(prodDeploymentModel).Run(); err != nil {
+func Deploy() {
+	deploymentModel := NewDeploymentModel()
+	if _, err := tea.NewProgram(deploymentModel).Run(); err != nil {
 		fmt.Printf("Uh oh, there was an error: %v\n", err)
 		os.Exit(1)
 	}

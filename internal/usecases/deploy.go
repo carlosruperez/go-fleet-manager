@@ -9,12 +9,12 @@ import (
 	"github.com/go-fleet-manager/internal/repository"
 )
 
-func ProdDeploy(repo repository.Repository, version string, ctx context.Context) (stdout, stderr bytes.Buffer, err error) {
+func Deploy(repo repository.Repository, version string, ctx context.Context) (stdout, stderr bytes.Buffer, err error) {
 	appName := repo.GetAppName()
 
-	prodDeployConfig := config.GetProdDeploymentConfig()
-	workflowId := prodDeployConfig.WorkflowId
-	workflowRepo := prodDeployConfig.WorkflowRepository
+	deployConfig := config.GetDeploymentConfig()
+	workflowId := deployConfig.WorkflowId
+	workflowRepo := deployConfig.WorkflowRepository
 
 	stdout, stderr, err = gh.ExecContext(ctx, "workflow", "run", workflowId, "-R", workflowRepo, "-F", "appName="+appName, "-F", "dockerImageVersion="+version, "-F", "env=prod")
 	return stdout, stderr, err

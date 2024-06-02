@@ -13,18 +13,18 @@ import (
 )
 
 type appModel struct {
-	keys                uiCommon.KeyMap
-	help                help.Model
-	focusedView         string
-	menuModel           menu.MenuModel
-	versionsModel       ui.VersionsModel
-	removeCacheModel    ui.RemoveCacheModel
-	maintenanceMode     ui.MaintenanceModeModel
-	devMinorModel       ui.DevMinorModel
-	prodDeploymentModel ui.ProdDeploymentModel
-	createMainPRModel   createMainPR.CreateMainPRModel
-	viewport            viewport.Model
-	terminalSizeReady   bool
+	keys              uiCommon.KeyMap
+	help              help.Model
+	focusedView       string
+	menuModel         menu.MenuModel
+	versionsModel     ui.VersionsModel
+	removeCacheModel  ui.RemoveCacheModel
+	maintenanceMode   ui.MaintenanceModeModel
+	devMinorModel     ui.DevMinorModel
+	deploymentModel   ui.DeploymentModel
+	createMainPRModel createMainPR.CreateMainPRModel
+	viewport          viewport.Model
+	terminalSizeReady bool
 }
 
 func (m *appModel) resetAppModel() {
@@ -37,8 +37,8 @@ func (m *appModel) resetAppModel() {
 		m.maintenanceMode = ui.MaintenanceModeModel{}
 	case string(menu.DevMinorOption):
 		m.devMinorModel = ui.DevMinorModel{}
-	case string(menu.PRODDeploymentOption):
-		m.prodDeploymentModel = ui.ProdDeploymentModel{}
+	case string(menu.DeploymentOption):
+		m.deploymentModel = ui.DeploymentModel{}
 	case string(menu.CreatePRsToMainOption):
 		m.createMainPRModel = createMainPR.CreateMainPRModel{}
 	}
@@ -79,12 +79,12 @@ func (m appModel) forwardMsgToView(msg tea.Msg, view string) (tea.Model, tea.Cmd
 		newModel, cmd := m.devMinorModel.Update(msg)
 		m.devMinorModel = newModel.(ui.DevMinorModel)
 		return m, cmd
-	case string(menu.PRODDeploymentOption):
-		if (m.prodDeploymentModel.Equals(&ui.ProdDeploymentModel{})) {
-			m.prodDeploymentModel = ui.NewProdDeploymentModel()
+	case string(menu.DeploymentOption):
+		if (m.deploymentModel.Equals(&ui.DeploymentModel{})) {
+			m.deploymentModel = ui.NewDeploymentModel()
 		}
-		newModel, cmd := m.prodDeploymentModel.Update(msg)
-		m.prodDeploymentModel = newModel.(ui.ProdDeploymentModel)
+		newModel, cmd := m.deploymentModel.Update(msg)
+		m.deploymentModel = newModel.(ui.DeploymentModel)
 		return m, cmd
 	case string(menu.CreatePRsToMainOption):
 		if (m.createMainPRModel.Equals(&createMainPR.CreateMainPRModel{})) {

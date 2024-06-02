@@ -17,7 +17,7 @@ maintenanceMode:
   workflowId: main-maintenance.yaml
   workflowRepository: carlosruperez/go-fleet-manager
 
-prodDeployment:
+deployment:
   workflowId: main-deployment.yaml
   workflowRepository: carlosruperez/go-fleet-manager
 
